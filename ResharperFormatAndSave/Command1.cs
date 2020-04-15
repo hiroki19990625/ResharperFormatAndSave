@@ -98,17 +98,27 @@ namespace ResharperFormatAndSave
             string ext = Path.GetExtension(dte.ActiveDocument.FullName);
             if (_anyExtensions.Contains(ext))
             {
-                // dte.ExecuteCommand();
                 Command command = dte.Commands.Item("ReSharper.ReSharper_ReformatCode");
                 Guid guid = new Guid(command.Guid);
+
+                dte.Events.CommandEvents[command.Guid, command.ID].AfterExecute += OnAfterExecute;
 
                 FormatCommand = command.Guid;
 
                 object args = new object();
                 shell?.PostExecCommand(ref guid, (uint) command.ID, 0, ref args);
             }
+        }
+
+        private void OnAfterExecute(string guid, int id, object customin, object customout)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            Task<object> task = ServiceProvider.GetServiceAsync(typeof(DTE));
+            DTE dte = ThreadHelper.JoinableTaskFactory.Run(() => task) as DTE;
 
             dte.ActiveDocument.Save();
+
+            dte.Events.CommandEvents[guid, id].AfterExecute -= OnAfterExecute;
         }
     }
 }
